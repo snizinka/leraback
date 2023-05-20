@@ -9,16 +9,20 @@ async function getAllUsers() {
 }
 
 async function getAllPosts() {
-    const data = await query(`SELECT * FROM nottiktok.post`)
+    const data = await query(`SELECT * FROM calvin.post as pst
+    JOIN calvin.postimages as img ON img.post_id = pst.post_id`)
 
     return data
 }
 
-async function createPost(title, bodyText, picture) {
-    const result = await query(`INSERT INTO nottiktok.post (title, bodyText, picture) VALUES("${title}", "${bodyText}", "${picture}")`)
+async function createPost(title, body, image) {
+    const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const data = await query(`INSERT INTO calvin.post (post_title, post_article, user_id, time) VALUES("${title}", "${body}", 1, "${currentTime}")`)
+    const postImage = await query(`INSERT INTO calvin.postimages (post_id, image_link, time) VALUES(${data.insertId}, "${image}", "${currentTime}")`)
 
-    return result
+    return data.insertId
 }
+
 
 module.exports = {
     getAllUsers,
