@@ -23,9 +23,42 @@ async function createPost(title, body, image) {
     return data.insertId
 }
 
+async function validateNewLogin(username) {
+    const data = await query(`SELECT * FROM calvin.user WHERE username = '${username}'`)
+
+    return data.length
+}
+
+async function createNewUserAccount(username, password) {
+    const validate = await validateNewLogin(username)
+    let data = {}
+    let isValidated = false
+
+    if (validate < 1) {
+        isValidated = true
+        data = await query(`INSERT INTO calvin.user (username, password, role) VALUES('${username}', '${password}', 'customer')`)
+    }
+
+    return { newId: data, validationStatus: isValidated }
+}
+
+async function authorizeUser(username, password) {
+    const userData = await query(`SELECT * FROM calvin.user WHERE username = '${username}' AND password = '${password}'`)
+    let isValidated = false
+
+    if (userData.length > 0) {
+        isValidated = true
+    }
+
+    return { user: userData, validationStatus: isValidated }
+}
+
 
 module.exports = {
     getAllUsers,
     getAllPosts,
-    createPost
+    createPost,
+    createNewUserAccount,
+    validateNewLogin,
+    authorizeUser
 }

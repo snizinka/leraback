@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { getAllUsers, getAllPosts, createPost } = require('./dbQueries')
+const { getAllUsers, getAllPosts, createPost, createNewUserAccount, authorizeUser } = require('./dbQueries')
 
 const API_PORT = 7000
 const app = express()
@@ -64,6 +64,23 @@ app.post('/loadallposts', async (req, res) => {
 })
 
 app.post('/uploadfile', upload.single('file'), async function (req, res) {
-   
     res.send({ result: req.file.path })
+})
+
+app.post('/signupuser', async (req, res) => {
+    const username = req.body.login
+    const password = req.body.password
+
+    const createUser = await createNewUserAccount(username, password)
+
+    res.send({'data' : createUser})
+})
+
+app.post('/authorize', async (req, res) => {
+    const username = req.body.login
+    const password = req.body.password
+
+    const user = await authorizeUser(username, password)
+
+    res.send({'data' : user})
 })
