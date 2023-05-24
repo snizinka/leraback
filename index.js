@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { getAllUsers, getAllPosts, createPost, createNewUserAccount, authorizeUser } = require('./dbQueries')
+const { createNewUserAccount, authorizeUser, createPost, getAllPosts, changeLikeState } = require('./dbQueries')
 
 const API_PORT = 7000
 const app = express()
@@ -35,33 +35,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage })
 
 //////////////////////////////////////////////////////////////////
-app.post('/users', async (req, res) => {
-    const data = await getAllUsers()
-
-    res.send({'data' : data})
-})
-
-app.get('/posts', async (req, res) => {
-    const data = await getAllPosts()
-
-    res.send({'posts' : data})
-})
-
-app.post('/createpost', async (req, res) => {
-    const frontTitle = req.body.title
-    const frontBody = req.body.bodyText
-    const frontImage = req.body.picture
-
-    const data = await createPost(frontTitle, frontBody, frontImage)
-
-    res.send({'result': data})
-})
-
-app.post('/loadallposts', async (req, res) => {
-    const data = await getAllPosts()
-
-    res.send({'result': data})
-})
 
 app.post('/uploadfile', upload.single('file'), async function (req, res) {
     res.send({ result: req.file.path })
@@ -73,7 +46,7 @@ app.post('/signupuser', async (req, res) => {
 
     const createUser = await createNewUserAccount(username, password)
 
-    res.send({'data' : createUser})
+    res.send({ 'data': createUser })
 })
 
 app.post('/authorize', async (req, res) => {
@@ -82,5 +55,33 @@ app.post('/authorize', async (req, res) => {
 
     const user = await authorizeUser(username, password)
 
-    res.send({'data' : user})
+    res.send({ 'data': user })
+})
+
+app.post('/createpost', async (req, res) => {
+    const title = req.body.title
+    const bodyText = req.body.bodyText
+    const picture = req.body.picture
+    const userId = req.body.userId
+
+    const creationOfPost = await createPost(title, bodyText, picture, userId)
+
+    res.send({ 'data': creationOfPost })
+})
+
+app.post('/loadposts', async (req, res) => {
+    const userId = req.body.userId
+
+    const allPosts = await getAllPosts(userId)
+
+    res.send({ 'data': allPosts })
+})
+
+app.post('/likepost', async (req, res) => {
+    const userId = req.body.userId
+    const postId = req.body.postId
+
+    const like = await changeLikeState(userId, postId)
+
+    res.send({ 'data': like })
 })
