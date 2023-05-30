@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { createNewUserAccount, authorizeUser, createPost, getAllPosts, changeLikeState } = require('./dbQueries')
+const { createNewUserAccount, authorizeUser, createPost, getAllPosts, changeLikeState, getPostById } = require('./dbQueries')
 
 const API_PORT = 7000
 const app = express()
@@ -35,9 +35,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage })
 
 //////////////////////////////////////////////////////////////////
-
 app.post('/uploadfile', upload.single('file'), async function (req, res) {
     res.send({ result: req.file.path })
+})
+
+app.post('/uploadfiles', upload.array('file'), async function (req, res) {
+    res.send({ result: req.files.map(file => file.path) })
 })
 
 app.post('/signupuser', async (req, res) => {
@@ -63,8 +66,9 @@ app.post('/createpost', async (req, res) => {
     const bodyText = req.body.bodyText
     const picture = req.body.picture
     const userId = req.body.userId
+    const postImages = req.body.postImages
 
-    const creationOfPost = await createPost(title, bodyText, picture, userId)
+    const creationOfPost = await createPost(title, bodyText, picture, userId, postImages)
 
     res.send({ 'data': creationOfPost })
 })
@@ -84,4 +88,12 @@ app.post('/likepost', async (req, res) => {
     const like = await changeLikeState(userId, postId)
 
     res.send({ 'data': like })
+})
+
+app.post('/loadeditpost', async (req, res) => {
+    const postId = req.body.postId
+
+    const postToEdit = await getPostById(postId)
+
+    res.send({ 'data': postToEdit })
 })

@@ -33,7 +33,7 @@ async function authorizeUser(username, password) {
     return { user: userData, validationStatus: isValidated }
 }
 
-async function createPost(title, bodyText, picture, userId) {
+async function createPost(title, bodyText, picture, userId, postImages) {
     const searchString = 'socialimages/';
     const postContentIndex = picture.indexOf(searchString);
     let trimmedString = ''
@@ -44,13 +44,26 @@ async function createPost(title, bodyText, picture, userId) {
     const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
     const createdPost = await query(`INSERT INTO calvin.post (post_title, post_article, user_id, preview_img, time) VALUES('${title}', '${bodyText}', ${userId}, '${trimmedString}', '${currentTime}')`)
 
+    for (let i = 0; i < postImages.length; i++) {
+        const searchPostString = 'socialimages/';
+        const postContentPicIndex = postImages[i].indexOf(searchPostString);
+        let trimmedPostString = ''
+        if (postContentPicIndex !== -1) {
+            trimmedPostString = postImages[i].substring(postContentPicIndex + searchPostString.length);
+        }
+
+        const createPostImage = await query(`INSERT INTO calvin.postimages (post_id, image_link, time) VALUES(${createdPost.insertId}, '${trimmedPostString}', '${currentTime}')`)
+    }
+
     let loadNewPost = await query(`SELECT * FROM calvin.post WHERE post_id = ${createdPost.insertId}`)
     let comments = await query(`SELECT * FROM calvin.comments WHERE post_id = ${loadNewPost[0].post_id}`)
     let likes = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${loadNewPost[0].post_id}`)
     let didUserLiked = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${loadNewPost[0].post_id} AND user_id = ${userId}`)
+    let loadPostImages = await query(`SELECT * FROM calvin.postimages WHERE post_id = ${createdPost.insertId}`)
     loadNewPost[0].comment = comments
     loadNewPost[0].likes = likes.length
     loadNewPost[0].didUserLiked = didUserLiked.length > 0 ? true : false
+    loadNewPost[0].postImages = loadPostImages
 
     return { status: createdPost.insertId !== undefined ? 'Success' : 'Failure', newPost: loadNewPost[0] }
 }
@@ -62,12 +75,25 @@ async function getAllPosts(userId) {
         let comments = await query(`SELECT * FROM calvin.comments WHERE post_id = ${posts[i].post_id}`)
         let likes = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${posts[i].post_id}`)
         let didUserLiked = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${posts[i].post_id} AND user_id = ${userId}`)
+        let loadPostImages = await query(`SELECT * FROM calvin.postimages WHERE post_id = ${posts[i].post_id}`)
         posts[i].comment = comments
         posts[i].likes = likes.length
         posts[i].didUserLiked = didUserLiked.length > 0 ? true : false
+        posts[i].postImages = loadPostImages
     }
 
-    return posts
+    return posts.reverse()
+}
+
+async function getPostById(postId) {
+    let posts = await query(`SELECT * FROM calvin.post WHERE post_id = ${postId}`) // 5 posts
+
+    for (let i = 0; i < posts.length; i++) {
+        let loadPostImages = await query(`SELECT * FROM calvin.postimages WHERE post_id = ${posts[i].post_id}`)
+        posts[i].postImages = loadPostImages
+    }
+
+    return posts[posts.length - 1]
 }
 
 async function changeLikeState(userId, postId) {
@@ -93,5 +119,6 @@ module.exports = {
     authorizeUser,
     createPost,
     getAllPosts,
-    changeLikeState
+    changeLikeState,
+    getPostById
 }
