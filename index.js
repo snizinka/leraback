@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { createNewUserAccount, authorizeUser, createPost, getAllPosts, changeLikeState, getPostById } = require('./dbQueries')
+const { createNewUserAccount, authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode } = require('./dbQueries')
 
 const API_PORT = 7000
 const app = express()
@@ -52,6 +52,14 @@ app.post('/signupuser', async (req, res) => {
     res.send({ 'data': createUser })
 })
 
+app.post('/confirmregistration', async (req, res) => {
+    const code = req.body.code
+   
+    const check = await checkConfirmationCode(code)
+
+    res.send({ 'data': check })
+})
+
 app.post('/authorize', async (req, res) => {
     const username = req.body.login
     const password = req.body.password
@@ -96,4 +104,17 @@ app.post('/loadeditpost', async (req, res) => {
     const postToEdit = await getPostById(postId)
 
     res.send({ 'data': postToEdit })
+})
+
+app.post('/editpost', async (req, res) => {
+    const postId = req.body.postId
+    const title = req.body.title
+    const bodyText = req.body.bodyText
+    const picture = req.body.picture
+    const postImages = req.body.postImages
+    const newPostImages = req.body.newPostImages
+
+    const editedPost = await editPost(postId, title, bodyText, picture, postImages, newPostImages)
+
+    res.send({ 'data': editedPost })
 })

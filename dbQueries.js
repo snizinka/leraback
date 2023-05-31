@@ -2,6 +2,17 @@ const { text } = require('express')
 const dbSettings = require('./dbSettings')
 const util = require('util')
 const query = util.promisify(dbSettings.query).bind(dbSettings)
+const nodemailer = require('nodemailer')
+
+var transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+        user: 'snizinkavolshebna@gmail.com',
+        pass: 'rqjtxdakovodcoik'
+    }
+})
 
 async function validateNewLogin(username) {
     const data = await query(`SELECT * FROM calvin.user WHERE username = '${username}'`)
@@ -16,10 +27,35 @@ async function createNewUserAccount(username, password) {
 
     if (validate < 1) {
         isValidated = true
-        data = await query(`INSERT INTO calvin.user (username, password, role) VALUES('${username}', '${password}', 'customer')`)
+
+        const confirmationNumber = Math.floor(100000 + Math.random() * 900000)
+
+        const mailOptions = {
+            from: 'ВЖиті <snizinkavolshebna@gmail.com>',
+            to: username,
+            subject: 'Here is your confirmation code',
+            text: confirmationNumber.toString(),
+        }
+    
+        const d = await new Promise((resolve, reject) => {
+            transporter.sendMail(mailOptions, function (err, info) {
+                if (err) {
+                    reject({ error: 'Mail not found' });
+                } else {
+                    resolve({ confirmationNumber: confirmationNumber });
+                }
+            })
+        })
+
+        data = await query(`INSERT INTO calvin.user (username, password, role, isconfirmed) VALUES('${username}', '${password}', 'customer', 'false')`)
+        await query(`INSERT INTO calvin.confirmations (user_id, confirmation_code, confirmation_type) VALUES(${data.insertId}, '${confirmationNumber}', 'register')`)
     }
 
     return { newId: data, validationStatus: isValidated }
+}
+
+async function checkConfirmationCode(code) {
+
 }
 
 async function authorizeUser(username, password) {
@@ -112,6 +148,29 @@ async function changeLikeState(userId, postId) {
     return like
 }
 
+async function editPost(postId, title, bodyText, picture, postImages, newPostImages) {
+    await query(`UPDATE calvin.post SET post_title = '${title}', post_article = '${bodyText}', preview_img = '${picture}' WHERE post_id = ${postId}`)
+    await query(`DELETE FROM calvin.postimages WHERE post_id = ${postId}`)
+
+    const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    for (let i = 0; i < postImages.length; i++) {
+        await query(`INSERT INTO calvin.postimages (post_id, image_link, time) VALUES(${postId}, '${postImages[i].image_link}', '${currentTime}')`)
+    }
+
+    for (let i = 0; i < newPostImages.length; i++) {
+        const searchPostString = 'socialimages/';
+        const postContentPicIndex = newPostImages[i].indexOf(searchPostString);
+        let trimmedPostString = ''
+        if (postContentPicIndex !== -1) {
+            trimmedPostString = newPostImages[i].substring(postContentPicIndex + searchPostString.length);
+        }
+
+        await query(`INSERT INTO calvin.postimages (post_id, image_link, time) VALUES(${postId}, '${trimmedPostString}', '${currentTime}')`)
+    }
+
+    return getPostById(postId)
+}
+
 
 module.exports = {
     createNewUserAccount,
@@ -120,5 +179,7 @@ module.exports = {
     createPost,
     getAllPosts,
     changeLikeState,
-    getPostById
+    getPostById,
+    editPost,
+    checkConfirmationCode
 }
