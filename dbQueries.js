@@ -55,7 +55,7 @@ async function createNewUserAccount(username, password) {
 }
 
 async function checkConfirmationCode(code) {
-
+    
 }
 
 async function authorizeUser(username, password) {
@@ -171,6 +171,39 @@ async function editPost(postId, title, bodyText, picture, postImages, newPostIma
     return getPostById(postId)
 }
 
+async function getAllContacts(userId) {
+    const chats = await query(`SELECT chat.id, usrtwo.user_id as userId, usrtwo.username
+    FROM calvin.chats as chat
+    JOIN calvin.user as usr ON usr.user_id = chat.user_id_one OR usr.user_id = chat.user_id_two
+    JOIN calvin.user as usrtwo ON usrtwo.user_id = chat.user_id_one OR usrtwo.user_id = chat.user_id_two AND usrtwo.user_id != ${userId}
+    WHERE usr.user_id = ${userId} AND usrtwo.user_id != ${userId}`)
+
+    return chats
+}
+
+async function getAllMessages(chatId) {
+    const messages = await query(`SELECT msg.id as msgId, msg.chat_id, msg.message, msg.is_read, msg.created_at, usr.user_id, usr.username, usr.image 
+    FROM calvin.messages as msg
+    JOIN calvin.user as usr on usr.user_id = msg.user_id
+    WHERE msg.chat_id = ${chatId}`)
+
+    return messages
+}
+
+async function getChatData(chatId, userId) {
+    const currentChat = await query(`SELECT usr.* FROM calvin.chats as chat
+    JOIN calvin.user as usr On usr.user_id = chat.user_id_one or usr.user_id = chat.user_id_two AND usr.user_id != ${userId} AND chat.id = ${userId}
+    WHERE (chat.user_id_one = ${userId} or chat.user_id_two = usr.user_id) or (chat.user_id_one = usr.user_id or chat.user_id_two = ${userId}) AND chat.id = ${chatId}`)
+
+    return currentChat
+}
+
+async function insertNewMessageToChat(chat_id, user_id, message) {
+    const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const newMessage = await query(`INSERT INTO calvin.messages (chat_id, user_id, message, is_read, created_at) VALUES(${chat_id}, ${user_id}, '${message}', 0, '${currentTime}')`)
+
+    return newMessage.insertId
+}
 
 module.exports = {
     createNewUserAccount,
@@ -181,5 +214,9 @@ module.exports = {
     changeLikeState,
     getPostById,
     editPost,
-    checkConfirmationCode
+    checkConfirmationCode,
+    getAllContacts,
+    getAllMessages,
+    getChatData,
+    insertNewMessageToChat
 }
