@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { createNewUserAccount, authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -41,15 +41,6 @@ app.post('/uploadfile', upload.single('file'), async function (req, res) {
 
 app.post('/uploadfiles', upload.array('file'), async function (req, res) {
     res.send({ result: req.files.map(file => file.path) })
-})
-
-app.post('/signupuser', async (req, res) => {
-    const username = req.body.login
-    const password = req.body.password
-
-    const createUser = await createNewUserAccount(username, password)
-
-    res.send({ 'data': createUser })
 })
 
 app.post('/confirmregistration', async (req, res) => {
@@ -139,6 +130,36 @@ app.post('/currentchat', async (req, res) => {
     const chat = await getChatData(chatId, userId)
 
     res.send({ 'data': chat })
+})
+
+app.post('/profile', async (req, res) => {
+    const userId = req.body.userId
+    const profile = await getProfile(userId)
+
+    res.send({ 'data': profile })
+})
+
+app.post('/updateprofile', async (req, res) => {
+    const userId = req.body.userId
+    const username = req.body.username
+    const password = req.body.password
+    const userImage = req.body.userImage
+
+    const update = await updateProfile(userId, username, password, userImage)
+
+    res.send({ 'data': update })
+})
+
+app.post('/confirmrestemailcode', async (req, res) => {
+    const userId = req.body.userId
+    const code = req.body.code
+    const email = req.body.email
+    const password = req.body.password
+    const image = req.body.image
+
+    const isConfirmed = await confirmationCodeEmailValidation(userId, code, email, password, image)
+
+    res.send({ 'data': isConfirmed })
 })
 
 

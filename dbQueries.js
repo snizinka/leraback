@@ -20,42 +20,8 @@ async function validateNewLogin(username) {
     return data.length
 }
 
-async function createNewUserAccount(username, password) {
-    const validate = await validateNewLogin(username)
-    let data = {}
-    let isValidated = false
-
-    if (validate < 1) {
-        isValidated = true
-
-        const confirmationNumber = Math.floor(100000 + Math.random() * 900000)
-
-        const mailOptions = {
-            from: 'ВЖиті <snizinkavolshebna@gmail.com>',
-            to: username,
-            subject: 'Here is your confirmation code',
-            text: confirmationNumber.toString(),
-        }
-    
-        const d = await new Promise((resolve, reject) => {
-            transporter.sendMail(mailOptions, function (err, info) {
-                if (err) {
-                    reject({ error: 'Mail not found' });
-                } else {
-                    resolve({ confirmationNumber: confirmationNumber });
-                }
-            })
-        })
-
-        data = await query(`INSERT INTO calvin.user (username, password, role, isconfirmed) VALUES('${username}', '${password}', 'customer', 'false')`)
-        await query(`INSERT INTO calvin.confirmations (user_id, confirmation_code, confirmation_type) VALUES(${data.insertId}, '${confirmationNumber}', 'register')`)
-    }
-
-    return { newId: data, validationStatus: isValidated }
-}
-
 async function checkConfirmationCode(code) {
-    
+
 }
 
 async function authorizeUser(username, password) {
@@ -205,8 +171,70 @@ async function insertNewMessageToChat(chat_id, user_id, message) {
     return newMessage.insertId
 }
 
+async function getProfile(userId) {
+    const profile = await query(`SELECT * FROM calvin.user WHERE user_id = ${userId}`)
+
+    return profile[0]
+}
+
+async function updateProfile(userId, username, password, userImage) {
+    const checkEmail = await query(`SELECT username FROM calvin.user WHERE username = '${username}' and user_id = ${userId}`)
+
+    if (checkEmail.length === 0) {
+        const getmail = await query(`SELECT username FROM calvin.user WHERE user_id = ${userId}`)
+        const confirmationCode = Math.floor(100000 + Math.random() * 80000)
+        console.log(getmail[0].username)
+        const mailOptions = {
+            from: 'ВЖиті <snizinkavolshebna@gmail.com>',
+            to: getmail[0].username,
+            subject: 'Here is your confirmation code',
+            text: confirmationCode.toString()
+        }
+
+        const d = await new Promise((res, rej) => {
+            transporter.sendMail(mailOptions, function (err, info) {
+                if (err) {
+                    rej({ error: 'Mail not found' })
+                } else {
+                    res({ confirmationCode: confirmationCode })
+                }
+            })
+        })
+
+        await query(`INSERT INTO calvin.confirmations (user_id, confirmation_code, confirmation_type) VALUES(${userId}, '${confirmationCode}', 'update_mail')`)
+
+        return { confirmationCode: confirmationCode, isUpdated: false }
+    } else {
+        const update = await query(`UPDATE calvin.user set password = '${password}', image = '${userImage}'`)
+
+        return { isUpdated: true }
+    }
+}
+
+async function confirmationCodeEmailValidation(userId, code, email, password, image) {
+    console.log(userId, code)
+    const isValid = await query(`SELECT confirmation_code from calvin.confirmations WHERE user_id = ${userId} AND confirmed is NULL`)
+
+    if (isValid.length > 0) {
+        if (isValid[isValid.length - 1].confirmation_code.toString() === code.toString()) {
+            const searchString = 'socialimages/';
+            const postContentIndex = image.indexOf(searchString);
+            let trimmedString = ''
+            if (postContentIndex !== -1) {
+                trimmedString = image.substring(postContentIndex + searchString.length);
+            }
+
+            await query(`UPDATE calvin.confirmations set confirmed = 1 WHERE user_id = ${userId}`)
+            await query(`UPDATE calvin.user set username = '${email}', password = '${password}', image = '${trimmedString}' WHERE user_id = ${userId}`)
+
+            return 'Confirmed'
+        }
+    } else {
+        return 'Faild'
+    }
+}
+
 module.exports = {
-    createNewUserAccount,
     validateNewLogin,
     authorizeUser,
     createPost,
@@ -218,5 +246,8 @@ module.exports = {
     getAllContacts,
     getAllMessages,
     getChatData,
-    insertNewMessageToChat
+    insertNewMessageToChat,
+    getProfile,
+    updateProfile,
+    confirmationCodeEmailValidation
 }
