@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -16,7 +16,7 @@ server.listen(API_PORT, () => console.log('Listening'))
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'C:/Users/Snizinka/Desktop/lesson/src/socialimages')
+        cb(null, 'C:/Users/USER/Desktop/front/lerafront/src/socialimages')
     },
     filename: function (req, file, cb) {
         const searchString = '.';
@@ -72,12 +72,54 @@ app.post('/createpost', async (req, res) => {
     res.send({ 'data': creationOfPost })
 })
 
+app.post('/createcommunitypost', async (req, res) => {
+    const title = req.body.title
+    const bodyText = req.body.bodyText
+    const picture = req.body.picture
+    const userId = req.body.userId
+    const postImages = req.body.postImages
+    const communityId = req.body.communityId
+
+    const creationOfPost = await createCommunityPost(title, bodyText, picture, userId, postImages, communityId)
+
+    res.send({ 'data': creationOfPost })
+})
+
+app.post('/createcommunity', async (req, res) => {
+    const title = req.body.title
+    const details = req.body.details
+    const picture = req.body.picture
+    const userId = req.body.userId
+
+    const createdCommunity = await createCommunity(title, details, picture, userId)
+
+    res.send({ 'data': createdCommunity })
+})
+
 app.post('/loadposts', async (req, res) => {
     const userId = req.body.userId
 
     const allPosts = await getAllPosts(userId)
 
     res.send({ 'data': allPosts })
+})
+
+
+app.post('/loadcommunityposts', async (req, res) => {
+    const userId = req.body.userId
+    const communityId = req.body.communityId
+
+    const allPosts = await getAllCommunityPosts(communityId, userId)
+
+    res.send({ 'data': allPosts })
+})
+
+app.post('/loadcommunitydetails', async (req, res) => {
+    const communityId = req.body.communityId
+
+    const details = await loadCommunity(communityId)
+
+    res.send({ 'data': details })
 })
 
 app.post('/likepost', async (req, res) => {

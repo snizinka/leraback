@@ -87,6 +87,28 @@ async function getAllPosts(userId) {
     return posts.reverse()
 }
 
+async function getAllCommunityPosts(communityId, userId) {
+    let posts = await query(`SELECT * FROM calvin.post WHERE community_id = ${communityId}`)
+
+    for (let i = 0; i < posts.length; i++) {
+        let comments = await query(`SELECT * FROM calvin.comments WHERE post_id = ${posts[i].post_id}`)
+        let likes = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${posts[i].post_id}`)
+        let didUserLiked = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${posts[i].post_id} AND user_id = ${userId}`)
+        let loadPostImages = await query(`SELECT * FROM calvin.postimages WHERE post_id = ${posts[i].post_id}`)
+        posts[i].comment = comments
+        posts[i].likes = likes.length
+        posts[i].didUserLiked = didUserLiked.length > 0 ? true : false
+        posts[i].postImages = loadPostImages
+    }
+
+    return posts.reverse()
+}
+
+async function loadCommunity(communityId) {
+    let posts = await query(`SELECT * FROM calvin.community WHERE id = ${communityId}`) // [{community_name, id ....}] 1
+    return posts[posts.length - 1] // {community_name, id ....}
+}
+
 async function getPostById(postId) {
     let posts = await query(`SELECT * FROM calvin.post WHERE post_id = ${postId}`) // 5 posts
 
@@ -234,6 +256,58 @@ async function confirmationCodeEmailValidation(userId, code, email, password, im
     }
 }
 
+
+
+async function createCommunityPost(title, bodyText, picture, userId, postImages, communityId) {
+    const searchString = 'socialimages/';
+    const postContentIndex = picture.indexOf(searchString);
+    let trimmedString = ''
+    if (postContentIndex !== -1) {
+        trimmedString = picture.substring(postContentIndex + searchString.length);
+    }
+
+    const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    const createdPost = await query(`INSERT INTO calvin.post (post_title, post_article, user_id, preview_img, time, community_id) VALUES('${title}', '${bodyText}', ${userId}, '${trimmedString}', '${currentTime}', ${communityId})`)
+
+    for (let i = 0; i < postImages.length; i++) {
+        const searchPostString = 'socialimages/';
+        const postContentPicIndex = postImages[i].indexOf(searchPostString);
+        let trimmedPostString = ''
+        if (postContentPicIndex !== -1) {
+            trimmedPostString = postImages[i].substring(postContentPicIndex + searchPostString.length);
+        }
+
+        await query(`INSERT INTO calvin.postimages (post_id, image_link, time) VALUES(${createdPost.insertId}, '${trimmedPostString}', '${currentTime}')`)
+    }
+
+    let loadNewPost = await query(`SELECT * FROM calvin.post WHERE post_id = ${createdPost.insertId}`)
+    let comments = await query(`SELECT * FROM calvin.comments WHERE post_id = ${loadNewPost[0].post_id}`)
+    let likes = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${loadNewPost[0].post_id}`)
+    let didUserLiked = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${loadNewPost[0].post_id} AND user_id = ${userId}`)
+    let loadPostImages = await query(`SELECT * FROM calvin.postimages WHERE post_id = ${createdPost.insertId}`)
+    loadNewPost[0].comment = comments
+    loadNewPost[0].likes = likes.length
+    loadNewPost[0].didUserLiked = didUserLiked.length > 0 ? true : false
+    loadNewPost[0].postImages = loadPostImages
+
+    return { status: createdPost.insertId !== undefined ? 'Success' : 'Failure', newPost: loadNewPost[0] }
+}
+
+async function createCommunity(title, details, picture, userId) {
+    const searchString = 'socialimages/';
+    const postContentIndex = picture.indexOf(searchString);
+    let trimmedString = ''
+    if (postContentIndex !== -1) {
+        trimmedString = picture.substring(postContentIndex + searchString.length);
+    }
+
+    const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ') // CURRENT TIME
+    const createdCommunity = await query(`INSERT INTO calvin.community (community_name, description, image, creator_id, created_at) VALUES('${title}', '${details}', '${trimmedString}', ${userId}, '${currentTime}')`)
+
+    return createdCommunity.insertId
+}
+
+
 module.exports = {
     validateNewLogin,
     authorizeUser,
@@ -249,5 +323,9 @@ module.exports = {
     insertNewMessageToChat,
     getProfile,
     updateProfile,
-    confirmationCodeEmailValidation
+    confirmationCodeEmailValidation,
+    createCommunityPost,
+    getAllCommunityPosts,
+    loadCommunity,
+    createCommunity
 }
