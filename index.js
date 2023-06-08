@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -116,8 +116,9 @@ app.post('/loadcommunityposts', async (req, res) => {
 
 app.post('/loadcommunitydetails', async (req, res) => {
     const communityId = req.body.communityId
+    const userId = req.body.userId
 
-    const details = await loadCommunity(communityId)
+    const details = await loadCommunity(communityId, userId)
 
     res.send({ 'data': details })
 })
@@ -129,6 +130,34 @@ app.post('/likepost', async (req, res) => {
     const like = await changeLikeState(userId, postId)
 
     res.send({ 'data': like })
+})
+
+
+app.post('/followcommunity', async (req, res) => {
+    const userId = req.body.userId
+    const communityId = req.body.communityId
+
+    const follow = await followOrUnfollow(userId, communityId)
+
+    res.send({ 'data': follow })
+})
+
+app.post('/followuser', async (req, res) => {
+    const userId = req.body.userId
+    const followerId = req.body.followerId
+
+    const follow = await followUser(userId, followerId)
+
+    res.send({ 'data': follow })
+})
+
+
+app.post('/findusers', async (req, res) => {
+    const username = req.body.username
+    
+    const userList = await findUsers(username)
+
+    res.send({ 'data': userList })
 })
 
 app.post('/loadeditpost', async (req, res) => {
@@ -176,9 +205,19 @@ app.post('/currentchat', async (req, res) => {
 
 app.post('/profile', async (req, res) => {
     const userId = req.body.userId
-    const profile = await getProfile(userId)
+    const watcherId = req.body.watcherId
+    const needDetails = req.body.needDetails
+    const profile = await getProfile(userId, watcherId, needDetails)
 
     res.send({ 'data': profile })
+})
+
+
+app.post('/communitysearch', async (req, res) => {
+    const title = req.body.title
+    const communityList = await findCommunities(title)
+
+    res.send({ 'data': communityList })
 })
 
 app.post('/updateprofile', async (req, res) => {

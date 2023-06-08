@@ -104,9 +104,16 @@ async function getAllCommunityPosts(communityId, userId) {
     return posts.reverse()
 }
 
-async function loadCommunity(communityId) {
-    let posts = await query(`SELECT * FROM calvin.community WHERE id = ${communityId}`) // [{community_name, id ....}] 1
-    return posts[posts.length - 1] // {community_name, id ....}
+async function loadCommunity(communityId, userId) {
+    let community = await query(`SELECT * FROM calvin.community WHERE id = ${communityId}`) // [{community_name, id ....}] 1
+    const isFollowing = await query(`SELECT * FROM calvin.community_subs WHERE user_id = ${userId} AND community_id = ${communityId}`)
+
+    const currentCommunity = {
+        ...community[community.length - 1],
+        isFollowing: isFollowing.length > 0 ? true : false
+    }
+
+    return currentCommunity // {community_name, id ....}
 }
 
 async function getPostById(postId) {
@@ -193,10 +200,22 @@ async function insertNewMessageToChat(chat_id, user_id, message) {
     return newMessage.insertId
 }
 
-async function getProfile(userId) {
+async function getProfile(userId, watcherId, needDetails) {
     const profile = await query(`SELECT * FROM calvin.user WHERE user_id = ${userId}`)
+    const isFollowing = await query(`SELECT * FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${watcherId}) OR  (user_id_two = ${userId} AND user_id_one = ${watcherId})`)
 
-    return profile[0]
+    let gallary = []
+    if (needDetails) {
+        gallary = await query(`SELECT * FROM calvin.postimages ORDER BY postimage_id DESC LIMIT 2`)
+    }
+
+    const profileData = {
+        ...profile[profile.length - 1],
+        isFollowing: isFollowing.length > 0 ? true : false,
+        gallary: gallary
+    }
+
+    return profileData
 }
 
 async function updateProfile(userId, username, password, userImage) {
@@ -307,6 +326,48 @@ async function createCommunity(title, details, picture, userId) {
     return createdCommunity.insertId
 }
 
+async function findCommunities(title) {
+    const communities = await query(`SELECT * FROM calvin.community WHERE community_name LIKE '%${title}%' OR description LIKE '%${title}%'`)
+
+    return communities
+}
+
+async function followOrUnfollow(userId, communityId) {
+    let didFollowed = false
+    const isFollowing = await query(`SELECT * FROM calvin.community_subs WHERE user_id = ${userId} AND community_id = ${communityId}`)
+
+    if (isFollowing.length === 0) {
+        const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ') // CURRENT TIME
+        await query(`INSERT INTO calvin.community_subs (community_id, user_id, created_at) VALUES(${communityId}, ${userId}, '${currentTime}')`)
+        didFollowed = true
+    } else {
+        await query(`DELETE FROM calvin.community_subs WHERE user_id = ${userId} AND community_id = ${communityId}`)
+    }
+
+    return didFollowed
+}
+
+async function followUser(userId, followerId) {
+    let didFollowed = false
+    const isFollowing = await query(`SELECT * FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${followerId}) OR (user_id_two = ${userId} AND user_id_one = ${followerId})`)
+
+    if (isFollowing.length === 0) {
+        const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ') // CURRENT TIME
+        await query(`INSERT INTO calvin.chats (user_id_one, user_id_two, created_at, created_by) VALUES(${userId}, ${followerId}, '${currentTime}', ${followerId})`)
+        didFollowed = true
+    } else {
+        await query(`DELETE FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${followerId}) OR (user_id_two = ${userId} AND user_id_one = ${followerId})`)
+    }
+
+    return didFollowed
+}
+
+async function findUsers(username) {
+    const users = await query(`SELECT * FROM calvin.user WHERE username LIKE '%${username}%'`)
+
+    return users
+}
+
 
 module.exports = {
     validateNewLogin,
@@ -327,5 +388,9 @@ module.exports = {
     createCommunityPost,
     getAllCommunityPosts,
     loadCommunity,
-    createCommunity
+    createCommunity,
+    findCommunities,
+    followOrUnfollow,
+    findUsers,
+    followUser
 }
