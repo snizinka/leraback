@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost, editMessage, removeMessage } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -95,6 +95,16 @@ app.post('/createcommunity', async (req, res) => {
 
     res.send({ 'data': createdCommunity })
 })
+
+app.post('/editchatmessage', async (req, res) => {
+    const messageId = req.body.messageId
+    const message = req.body.message
+
+    const updateMessage = await editMessage(messageId, message)
+
+    res.send({ 'data': updateMessage })
+})
+
 
 app.post('/loadposts', async (req, res) => {
     const userId = req.body.userId
@@ -292,7 +302,7 @@ io.on('connection', (socket) => {
         const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
         const newMessage = await insertNewMessageToChat(data.chatId, data.userId, data.message)
         const messageToFront = {
-            id: newMessage,
+            msgId: newMessage,
             chat_id: data.chatId,
             user_id: data.userId,
             message: data.message,
@@ -302,6 +312,31 @@ io.on('connection', (socket) => {
         }
         socket.to(data.receiverID).emit('recieve-message', messageToFront)
         io.to(data.userId).emit('recieve-message', messageToFront)
+    })
+
+
+    socket.on('edit-message', async (data) => {
+        console.log(data)
+        const newMessage = await editMessage(data.editedMessageId, data.message)
+        const messageToFront = {
+            msgId: newMessage[0].id,
+            chat_id: data.chatId,
+            user_id: data.userId,
+            message: data.message,
+            is_read: newMessage[0].is_read,
+            created_at: newMessage[0].created_at,
+            username: data.username
+        }
+        socket.to(data.receiverID).emit('edited-message', messageToFront)
+        io.to(data.userId).emit('edited-message', messageToFront)
+    })
+
+
+    socket.on('remove-message', async (data) => {
+        console.log(data)
+        await removeMessage(data.messageId)
+        socket.to(data.receiverID).emit('removed-message', data.messageId)
+        io.to(data.userId).emit('removed-message', data.messageId)
     })
 
 

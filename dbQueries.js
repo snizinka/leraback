@@ -423,6 +423,16 @@ async function blockPost(reportId) {
     return reportStatus
 }
 
+async function editMessage(messageId, message) {
+    await query(`UPDATE calvin.messages SET message = '${message}' WHERE id = ${messageId}`)
+    const selectMessage = await query(`SELECT * FROM calvin.messages WHERE id = ${messageId}`)
+
+    return selectMessage
+}
+
+async function removeMessage(messageId) {
+    await query(`DELETE FROM calvin.messages WHERE id = ${messageId}`)
+}
 
 module.exports = {
     validateNewLogin,
@@ -450,5 +460,7 @@ module.exports = {
     followUser,
     reportOnPost,
     fetchReports,
-    blockPost
+    blockPost,
+    editMessage,
+    removeMessage
 }
