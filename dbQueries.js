@@ -74,6 +74,21 @@ async function getAllPosts(userId) {
     let posts = await query(`SELECT * FROM calvin.post`) // 5 posts
 
     for (let i = 0; i < posts.length; i++) {
+        let isBlocked = await query(`SELECT * FROM calvin.posts_reports WHERE post_id = ${posts[i].post_id}`)
+
+        if (isBlocked.length > 0) {
+            let removed = false
+            for(let r = 0; r < isBlocked.length; r++) {
+                if (isBlocked[r].reportStatus === 'blocked') {
+                    posts.splice(i, 1)
+                    removed = true
+                }
+            }
+            if (removed === true) {
+                continue
+            }
+        }
+
         let comments = await query(`SELECT * FROM calvin.comments WHERE post_id = ${posts[i].post_id}`)
         let likes = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${posts[i].post_id}`)
         let didUserLiked = await query(`SELECT * FROM calvin.postlikes WHERE post_id = ${posts[i].post_id} AND user_id = ${userId}`)
@@ -369,6 +384,46 @@ async function findUsers(username) {
 }
 
 
+async function reportOnPost(postId, userId, reportStatement) {
+    const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ') // CURRENT TIME
+    const report = await query(`INSERT INTO calvin.posts_reports (post_id, user_id, reportText, created_at) VALUES(${postId}, ${userId}, '${reportStatement}', '${currentTime}')`)
+
+    return report
+}
+
+async function fetchReports(postTitle, reportId) {
+    let reports = []
+
+    if (reportId === undefined) {
+        reports = await query(`SELECT * FROM calvin.posts_reports as report
+        JOIN calvin.post as pst on pst.post_id = report.post_id
+        WHERE pst.post_title LIKE '%${postTitle}%'`)
+    } else {
+        reports = await query(`SELECT * FROM calvin.posts_reports as report
+        JOIN calvin.post as pst on pst.post_id = report.post_id
+        WHERE report.id = ${reportId}`)
+    }
+
+    return reports
+}
+
+
+async function blockPost(reportId) {
+    const report = await query(`SELECT * FROM calvin.posts_reports WHERE id = ${reportId}`)
+    let reportStatus = true
+    if (report.length > 0) {
+        if (report[0].reportStatus !== 'blocked') {
+            reportStatus = false
+            await query(`UPDATE calvin.posts_reports SET reportStatus = 'blocked' WHERE id = ${reportId}`)
+        } else {
+            await query(`UPDATE calvin.posts_reports SET reportStatus = 'unblocked' WHERE id = ${reportId}`)
+        }
+    }
+
+    return reportStatus
+}
+
+
 module.exports = {
     validateNewLogin,
     authorizeUser,
@@ -392,5 +447,8 @@ module.exports = {
     findCommunities,
     followOrUnfollow,
     findUsers,
-    followUser
+    followUser,
+    reportOnPost,
+    fetchReports,
+    blockPost
 }

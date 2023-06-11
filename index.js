@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -219,6 +219,35 @@ app.post('/communitysearch', async (req, res) => {
 
     res.send({ 'data': communityList })
 })
+
+
+app.post('/reportpost', async (req, res) => {
+    const postId = req.body.postId
+    const userId = req.body.userId
+    const report = req.body.report
+    const reportPostStatus = await reportOnPost(postId, userId, report)
+
+    res.send({ 'data': reportPostStatus })
+})
+
+
+app.post('/fetchreports', async (req, res) => {
+    const postTitle = req.body.postTitle
+    const reportId = req.body.reportId
+    const reports = await fetchReports(postTitle, reportId)
+
+    res.send({ 'data': reports })
+})
+
+
+app.post('/blockpost', async (req, res) => {
+    const reportId = req.body.reportId
+    const reports = await blockPost(reportId)
+
+    res.send({ 'data': reports })
+})
+
+
 
 app.post('/updateprofile', async (req, res) => {
     const userId = req.body.userId
