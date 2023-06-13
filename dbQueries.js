@@ -202,8 +202,8 @@ async function getAllMessages(chatId) {
 
 async function getChatData(chatId, userId) {
     const currentChat = await query(`SELECT usr.* FROM calvin.chats as chat
-    JOIN calvin.user as usr On usr.user_id = chat.user_id_one or usr.user_id = chat.user_id_two AND usr.user_id != ${userId} AND chat.id = ${userId}
-    WHERE (chat.user_id_one = ${userId} or chat.user_id_two = usr.user_id) or (chat.user_id_one = usr.user_id or chat.user_id_two = ${userId}) AND chat.id = ${chatId}`)
+    JOIN calvin.user as usr On usr.user_id = chat.user_id_one or usr.user_id = chat.user_id_two AND usr.user_id != ${userId} AND chat.id = ${chatId}
+    WHERE (chat.user_id_one = ${userId} and chat.user_id_two = usr.user_id) or (chat.user_id_one = usr.user_id and chat.user_id_two = ${userId}) AND chat.id = ${chatId}`)
 
     return currentChat
 }
@@ -434,6 +434,10 @@ async function removeMessage(messageId) {
     await query(`DELETE FROM calvin.messages WHERE id = ${messageId}`)
 }
 
+async function changeSeenStatus(messageId) {
+    await query(`UPDATE calvin.messages SET is_read = 1 WHERE id = ${messageId}`)
+}
+
 module.exports = {
     validateNewLogin,
     authorizeUser,
@@ -462,5 +466,6 @@ module.exports = {
     fetchReports,
     blockPost,
     editMessage,
-    removeMessage
+    removeMessage,
+    changeSeenStatus
 }

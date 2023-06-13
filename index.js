@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost, editMessage, removeMessage } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost, editMessage, removeMessage, changeSeenStatus } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -298,7 +298,6 @@ io.on('connection', (socket) => {
     })
 
     socket.on('send-message', async (data) => {
-        console.log(data)
         const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ')
         const newMessage = await insertNewMessageToChat(data.chatId, data.userId, data.message)
         const messageToFront = {
@@ -316,7 +315,6 @@ io.on('connection', (socket) => {
 
 
     socket.on('edit-message', async (data) => {
-        console.log(data)
         const newMessage = await editMessage(data.editedMessageId, data.message)
         const messageToFront = {
             msgId: newMessage[0].id,
@@ -333,11 +331,15 @@ io.on('connection', (socket) => {
 
 
     socket.on('remove-message', async (data) => {
-        console.log(data)
         await removeMessage(data.messageId)
         socket.to(data.receiverID).emit('removed-message', data.messageId)
         io.to(data.userId).emit('removed-message', data.messageId)
     })
 
 
+    socket.on('set-seen-message', async (data) => {
+        await changeSeenStatus(data.messageId)
+        socket.to(data.userId).emit('seen-message', data.messageId)
+        io.to(data.receiverID).emit('seen-message', data.messageId)
+    })
 })
