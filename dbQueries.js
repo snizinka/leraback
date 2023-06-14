@@ -78,7 +78,7 @@ async function getAllPosts(userId) {
 
         if (isBlocked.length > 0) {
             let removed = false
-            for(let r = 0; r < isBlocked.length; r++) {
+            for (let r = 0; r < isBlocked.length; r++) {
                 if (isBlocked[r].reportStatus === 'blocked') {
                     posts.splice(i, 1)
                     removed = true
@@ -217,7 +217,7 @@ async function insertNewMessageToChat(chat_id, user_id, message) {
 
 async function getProfile(userId, watcherId, needDetails) {
     const profile = await query(`SELECT * FROM calvin.user WHERE user_id = ${userId}`)
-    const isFollowing = await query(`SELECT * FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${watcherId}) OR  (user_id_two = ${userId} AND user_id_one = ${watcherId})`)
+    const isFollowing = await query(`SELECT * FROM calvin.chats WHERE ((user_id_one = ${userId} AND user_id_two = ${watcherId}) OR (user_id_two = ${userId} AND user_id_one = ${watcherId})) AND is_match is not null`)
 
     let gallary = []
     if (needDetails) {
@@ -364,11 +364,18 @@ async function followOrUnfollow(userId, communityId) {
 
 async function followUser(userId, followerId) {
     let didFollowed = false
-    const isFollowing = await query(`SELECT * FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${followerId}) OR (user_id_two = ${userId} AND user_id_one = ${followerId})`)
+    const isFollowing = await query(`SELECT * FROM calvin.chats WHERE ((user_id_one = ${userId} AND user_id_two = ${followerId}) OR (user_id_two = ${userId} AND user_id_one = ${followerId})) AND is_match is not null`)
 
     if (isFollowing.length === 0) {
-        const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ') // CURRENT TIME
-        await query(`INSERT INTO calvin.chats (user_id_one, user_id_two, created_at, created_by) VALUES(${userId}, ${followerId}, '${currentTime}', ${followerId})`)
+        const changeFollow = await query(`SELECT * FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${followerId}) OR (user_id_two = ${userId} AND user_id_one = ${followerId})`)
+
+        if (changeFollow.length > 0) {
+            await query(`UPDATE calvin.chats SET is_match = 1 WHERE id = ${changeFollow[0].id}`)
+        } else {
+            const currentTime = new Date().toISOString().slice(0, 19).replace('T', ' ') // CURRENT TIME
+            await query(`INSERT INTO calvin.chats (user_id_one, user_id_two, created_at, created_by) VALUES(${userId}, ${followerId}, '${currentTime}', ${followerId})`)
+        }
+
         didFollowed = true
     } else {
         await query(`DELETE FROM calvin.chats WHERE (user_id_one = ${userId} AND user_id_two = ${followerId}) OR (user_id_two = ${userId} AND user_id_one = ${followerId})`)
@@ -438,6 +445,28 @@ async function changeSeenStatus(messageId) {
     await query(`UPDATE calvin.messages SET is_read = 1 WHERE id = ${messageId}`)
 }
 
+async function getNotifications(userId) {
+    const messages = await query(`SELECT * FROM calvin.messages as msg
+    JOIN calvin.user as usr on usr.user_id = msg.user_id
+    WHERE msg.user_id != ${userId} AND is_read != 1`)
+    const reports = await query(`SELECT * FROM calvin.posts_reports as report
+    JOIN calvin.post as pst on pst.post_id = report.post_id
+    WHERE pst.user_id = ${userId}`)
+    const contacts = await query(`SELECT * FROM calvin.chats as cht
+    JOIN calvin.user as usr on usr.user_id = cht.user_id_one
+    WHERE cht.user_id_two = ${userId} AND (cht.created_by != ${userId} OR cht.created_by is NULL) AND cht.is_match is NULL`)
+
+    return { messages, reports, contacts }
+}
+
+
+async function search(searchString) {
+    const posts = await query(`SELECT * FROM calvin.post WHERE post_title LIKE '%${searchString}%' OR post_article LIKE '%${searchString}%'`)
+    const users = await query(`SELECT * FROM calvin.user WHERE username LIKE '%${searchString}%'`)
+
+    return {posts, users}
+}
+
 module.exports = {
     validateNewLogin,
     authorizeUser,
@@ -467,5 +496,7 @@ module.exports = {
     blockPost,
     editMessage,
     removeMessage,
-    changeSeenStatus
+    changeSeenStatus,
+    getNotifications,
+    search
 }

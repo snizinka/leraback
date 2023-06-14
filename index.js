@@ -2,7 +2,7 @@ const express = require('express')
 const http = require('http')
 const cors = require('cors')
 const multer = require('multer')
-const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost, editMessage, removeMessage, changeSeenStatus } = require('./dbQueries')
+const { authorizeUser, createPost, getAllPosts, changeLikeState, getPostById, editPost, checkConfirmationCode, getAllContacts, getAllMessages, getChatData, insertNewMessageToChat, getProfile, updateProfile, confirmationCodeEmailValidation, createCommunityPost, getAllCommunityPosts, loadCommunity, createCommunity, findCommunities, followOrUnfollow, findUsers, followUser, reportOnPost, fetchReports, blockPost, editMessage, removeMessage, changeSeenStatus, getNotifications, search } = require('./dbQueries')
 const { Server } = require('socket.io')
 const API_PORT = 7000
 const app = express()
@@ -255,6 +255,22 @@ app.post('/blockpost', async (req, res) => {
     const reports = await blockPost(reportId)
 
     res.send({ 'data': reports })
+})
+
+
+app.post('/search', async (req, res) => {
+    const searchString = req.body.searchString
+    const reports = await search(searchString)
+
+    res.send({ 'data': reports })
+})
+
+
+app.post('/getnotifications', async (req, res) => {
+    const userId = req.body.userId
+    const notifications = await getNotifications(userId)
+
+    res.send({ 'data': notifications })
 })
 
 
